@@ -69,8 +69,11 @@ jobs:
             echo "Running coverage with kcov..."
 
             # Run kcov with the test binary
-            # Use --include-pattern to only include our source files
-            kcov --include-pattern=/src/ coverage "$TEST_BIN" || {
+            # Use --include-pattern to only include our source files (not cached dependencies)
+            # Exclude .zig-cache to avoid counting raylib/zspec dependencies
+            kcov --include-pattern=raylib-ecs-gfx/src/ \
+                 --exclude-pattern=.zig-cache \
+                 coverage "$TEST_BIN" || {
               echo "kcov failed, running tests without coverage"
               mkdir -p coverage/test
               echo '{"percent_covered":"0"}' > coverage/test/coverage.json
