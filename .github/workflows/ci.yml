@@ -94,6 +94,9 @@ jobs:
             FAILED=1
           fi
 
+          echo "Running example 08..."
+          CI_TEST=1 zig build run-08_nested_animations || echo "Example 08 failed"
+
           # List generated screenshots
           echo "Generated screenshots:"
           ls -la screenshot_*.png || echo "No screenshots found"
@@ -153,6 +156,7 @@ jobs:
               { file: 'screenshot_05.png', name: '05 - ECS Rendering' },
               { file: 'screenshot_06.png', name: '06 - Effects' },
               { file: 'screenshot_07.png', name: '07 - TexturePacker Fixtures' },
+              { file: 'screenshot_08.png', name: '08 - Nested Animation Paths' },
             ];
 
             let comment = '## 📸 Example Screenshots\n\n';
