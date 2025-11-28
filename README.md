@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Flying-Platform/raylib-ecs-gfx/actions/workflows/ci.yml/badge.svg)](https://github.com/Flying-Platform/raylib-ecs-gfx/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/apotema/0069615a643f5e3d215d25c5c6de10be/raw/test-badge.json)](https://github.com/Flying-Platform/raylib-ecs-gfx/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/apotema/a2afdfd6e7c0f4765cffca1db4219d1e/raw/coverage.json)](https://github.com/Flying-Platform/raylib-ecs-gfx/actions/workflows/coverage.yml)
 [![Zig](https://img.shields.io/badge/zig-0.15.2-orange)](https://ziglang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
