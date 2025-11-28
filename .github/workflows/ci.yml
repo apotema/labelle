@@ -69,7 +69,8 @@ jobs:
           if [ "$TEST_EXIT_CODE" -eq 0 ]; then
             echo "✅ **All $PASSED of $TOTAL tests passed!**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Tests failed**" >> $GITHUB_STEP_SUMMARY
+            FAILED_COUNT=$((TOTAL - PASSED))
+            echo "❌ **Tests failed: $PASSED/$TOTAL passed ($FAILED_COUNT failed)**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "<details><summary>Test Output</summary>" >> $GITHUB_STEP_SUMMARY
