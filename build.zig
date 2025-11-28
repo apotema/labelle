@@ -47,6 +47,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "04_camera", .path = "examples/04_camera/main.zig", .desc = "Camera pan and zoom" },
         .{ .name = "05_ecs_rendering", .path = "examples/05_ecs_rendering/main.zig", .desc = "ECS render systems" },
         .{ .name = "06_effects", .path = "examples/06_effects/main.zig", .desc = "Visual effects" },
+        .{ .name = "07_with_fixtures", .path = "examples/07_with_fixtures/main.zig", .desc = "TexturePacker fixtures demo" },
     };
 
     for (examples) |example| {

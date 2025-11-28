@@ -3,6 +3,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const SpriteAtlas = @import("sprite_atlas.zig").SpriteAtlas;
+const SpriteData = @import("sprite_atlas.zig").SpriteData;
 
 /// Manages multiple texture atlases
 pub const TextureManager = struct {
@@ -46,18 +47,25 @@ pub const TextureManager = struct {
         return self.atlases.getPtr(name);
     }
 
-    /// Get sprite rectangle from any loaded atlas
+    /// Find sprite data from any loaded atlas
     /// Searches all atlases for the sprite name
     pub fn findSprite(self: *TextureManager, sprite_name: []const u8) ?struct {
         atlas: *SpriteAtlas,
+        sprite: SpriteData,
         rect: rl.Rectangle,
     } {
         var iter = self.atlases.iterator();
         while (iter.next()) |entry| {
-            if (entry.value_ptr.getSpriteRect(sprite_name)) |rect| {
+            if (entry.value_ptr.getSprite(sprite_name)) |sprite| {
                 return .{
                     .atlas = entry.value_ptr,
-                    .rect = rect,
+                    .sprite = sprite,
+                    .rect = rl.Rectangle{
+                        .x = @floatFromInt(sprite.x),
+                        .y = @floatFromInt(sprite.y),
+                        .width = @floatFromInt(sprite.width),
+                        .height = @floatFromInt(sprite.height),
+                    },
                 };
             }
         }
@@ -71,5 +79,20 @@ pub const TextureManager = struct {
             atlas.deinit();
             self.allocator.free(entry.key);
         }
+    }
+
+    /// Get total number of sprites across all atlases
+    pub fn totalSpriteCount(self: *TextureManager) usize {
+        var total: usize = 0;
+        var iter = self.atlases.iterator();
+        while (iter.next()) |entry| {
+            total += entry.value_ptr.count();
+        }
+        return total;
+    }
+
+    /// Get number of loaded atlases
+    pub fn atlasCount(self: *TextureManager) usize {
+        return self.atlases.count();
     }
 };

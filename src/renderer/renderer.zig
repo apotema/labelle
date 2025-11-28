@@ -11,6 +11,7 @@ const SpriteLocation = components.SpriteLocation;
 
 const TextureManager = @import("../texture/texture_manager.zig").TextureManager;
 const SpriteAtlas = @import("../texture/sprite_atlas.zig").SpriteAtlas;
+const SpriteData = @import("../texture/sprite_atlas.zig").SpriteData;
 const Camera = @import("../camera/camera.zig").Camera;
 
 /// Predefined Z-index layers
@@ -68,8 +69,41 @@ pub const Renderer = struct {
         options: DrawOptions,
     ) void {
         const found = self.texture_manager.findSprite(sprite_name) orelse return;
+        self.drawSpriteData(found.atlas, found.sprite, x, y, options);
+    }
 
-        var src_rect = found.rect;
+    /// Draw a sprite using sprite data directly
+    pub fn drawSpriteData(
+        _: *Renderer,
+        atlas: *SpriteAtlas,
+        sprite: SpriteData,
+        x: f32,
+        y: f32,
+        options: DrawOptions,
+    ) void {
+        // Source rectangle in the atlas
+        var src_rect = rl.Rectangle{
+            .x = @floatFromInt(sprite.x),
+            .y = @floatFromInt(sprite.y),
+            .width = @floatFromInt(sprite.width),
+            .height = @floatFromInt(sprite.height),
+        };
+
+        // Calculate destination size
+        // For rotated sprites, we need to swap width/height for the destination
+        var dest_width: f32 = undefined;
+        var dest_height: f32 = undefined;
+
+        if (sprite.rotated) {
+            // Rotated: atlas stores it rotated 90° CW, so width<->height are swapped
+            dest_width = @as(f32, @floatFromInt(sprite.height)) * options.scale;
+            dest_height = @as(f32, @floatFromInt(sprite.width)) * options.scale;
+        } else {
+            dest_width = @as(f32, @floatFromInt(sprite.width)) * options.scale;
+            dest_height = @as(f32, @floatFromInt(sprite.height)) * options.scale;
+        }
+
+        // Apply flip to source rect
         if (options.flip_x) {
             src_rect.width = -src_rect.width;
         }
@@ -77,24 +111,41 @@ pub const Renderer = struct {
             src_rect.height = -src_rect.height;
         }
 
+        // Calculate position with trim offset
+        var draw_x = x + options.offset_x;
+        var draw_y = y + options.offset_y;
+
+        if (sprite.trimmed) {
+            draw_x += @as(f32, @floatFromInt(sprite.offset_x)) * options.scale;
+            draw_y += @as(f32, @floatFromInt(sprite.offset_y)) * options.scale;
+        }
+
         const dest_rect = rl.Rectangle{
-            .x = x + options.offset_x,
-            .y = y + options.offset_y,
-            .width = found.rect.width * options.scale,
-            .height = found.rect.height * options.scale,
+            .x = draw_x,
+            .y = draw_y,
+            .width = dest_width,
+            .height = dest_height,
         };
 
+        // Origin for rotation
         const origin = rl.Vector2{
-            .x = dest_rect.width / 2,
-            .y = dest_rect.height / 2,
+            .x = dest_width / 2,
+            .y = dest_height / 2,
         };
+
+        // Calculate final rotation
+        // If sprite is rotated in atlas, we need to counter-rotate by -90°
+        var final_rotation = options.rotation;
+        if (sprite.rotated) {
+            final_rotation -= 90.0;
+        }
 
         rl.drawTexturePro(
-            found.atlas.texture,
+            atlas.texture,
             src_rect,
             dest_rect,
             origin,
-            options.rotation,
+            final_rotation,
             options.tint,
         );
     }
