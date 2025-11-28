@@ -1,0 +1,131 @@
+//! ECS Systems for rendering entities
+
+const std = @import("std");
+const rl = @import("raylib");
+const ecs = @import("ecs");
+
+const components = @import("../components/components.zig");
+const Render = components.Render;
+const Animation = components.Animation;
+
+const Renderer = @import("../renderer/renderer.zig").Renderer;
+const animation_mod = @import("../animation/animation.zig");
+
+/// Position component (expected from game code)
+/// Games should define their own Position component with at least x, y fields
+pub const Position = struct {
+    x: f32 = 0,
+    y: f32 = 0,
+};
+
+/// Render all entities with Position and Render components
+/// Sorts by z_index for proper layering
+pub fn spriteRenderSystem(
+    comptime PositionType: type,
+    registry: *ecs.Registry(u32),
+    renderer: *Renderer,
+) void {
+    // Get all renderable entities
+    var view = registry.view(.{ PositionType, Render }, .{});
+
+    // Collect entities for sorting
+    var entities = std.ArrayList(struct {
+        entity: ecs.Entity(u32),
+        z_index: u8,
+    }).init(renderer.allocator);
+    defer entities.deinit();
+
+    var iter = view.iterator();
+    while (iter.next()) |entity| {
+        const render = view.getConst(Render, entity);
+        entities.append(.{
+            .entity = entity,
+            .z_index = render.z_index,
+        }) catch continue;
+    }
+
+    // Sort by z_index
+    std.mem.sort(@TypeOf(entities.items[0]), entities.items, {}, struct {
+        fn lessThan(_: void, a: anytype, b: anytype) bool {
+            return a.z_index < b.z_index;
+        }
+    }.lessThan);
+
+    // Render in order
+    for (entities.items) |item| {
+        const pos = view.getConst(PositionType, item.entity);
+        const render = view.getConst(Render, item.entity);
+
+        renderer.drawSprite(
+            render.sprite_name,
+            pos.x,
+            pos.y,
+            .{
+                .offset_x = render.offset_x,
+                .offset_y = render.offset_y,
+                .scale = render.scale,
+                .rotation = render.rotation,
+                .tint = render.tint,
+                .flip_x = render.flip_x,
+                .flip_y = render.flip_y,
+            },
+        );
+    }
+}
+
+/// Update all animations
+pub fn animationUpdateSystem(
+    registry: *ecs.Registry(u32),
+    dt: f32,
+) void {
+    var view = registry.view(.{Animation}, .{});
+    var iter = view.iterator();
+
+    while (iter.next()) |entity| {
+        var anim = view.get(Animation, entity);
+        anim.update(dt);
+    }
+}
+
+/// Update animation sprites based on current frame
+/// This system updates the Render component's sprite_name based on Animation state
+pub fn animationSpriteUpdateSystem(
+    comptime sprite_prefix_fn: fn (ecs.Entity(u32), *ecs.Registry(u32)) []const u8,
+    registry: *ecs.Registry(u32),
+    sprite_name_buffer: []u8,
+) void {
+    var view = registry.view(.{ Animation, Render }, .{});
+    var iter = view.iterator();
+
+    while (iter.next()) |entity| {
+        const anim = view.getConst(Animation, entity);
+        var render = view.get(Render, entity);
+
+        // Get sprite prefix for this entity (e.g., "characters/player")
+        const prefix = sprite_prefix_fn(entity, registry);
+
+        // Generate sprite name
+        const sprite_name = animation_mod.generateSpriteName(
+            sprite_name_buffer,
+            prefix,
+            anim.anim_type,
+            anim.frame,
+        );
+
+        render.sprite_name = sprite_name;
+    }
+}
+
+/// Simple animation render that combines update and render
+pub fn animatedSpriteRenderSystem(
+    comptime PositionType: type,
+    registry: *ecs.Registry(u32),
+    renderer: *Renderer,
+    dt: f32,
+) void {
+    // Update animations first
+    animationUpdateSystem(registry, dt);
+
+    // Then render
+    spriteRenderSystem(PositionType, registry, renderer);
+}

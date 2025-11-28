@@ -1,0 +1,22 @@
+.{
+    .name = "raylib-ecs-gfx",
+    .version = "0.1.0",
+    .minimum_zig_version = "0.13.0",
+
+    .dependencies = .{
+        .raylib_zig = .{
+            .url = "https://github.com/raysan5/raylib/releases/download/5.5/raylib-5.5_zig-0.13.0.tar.gz",
+            .hash = "12200de1cd8ef5c4f0e79a42eb53fe93f66c689493d7c0719b507bfe16a6da3b6c88",
+        },
+        .entt = .{
+            .url = "https://github.com/prime31/zig-ecs/archive/refs/heads/main.tar.gz",
+            .hash = "1220ebe5684cdbf75c94e817264bc0a0db64a7d10e53af200d6f74812b44884bff2c",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
