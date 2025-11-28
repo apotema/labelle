@@ -15,20 +15,23 @@ const Position = struct {
     y: f32 = 0,
 };
 
-// Define animation types for this example
+// Define animation types for this example with config
 const AnimType = enum {
     idle,
     walk,
     run,
     jump,
 
-    pub fn toSpriteName(self: AnimType) []const u8 {
-        return @tagName(self);
+    pub fn config(self: AnimType) gfx.AnimConfig {
+        return switch (self) {
+            .idle => .{ .frames = 4, .frame_duration = 0.15 },
+            .walk => .{ .frames = 6, .frame_duration = 0.1 },
+            .run => .{ .frames = 4, .frame_duration = 0.08 },
+            .jump => .{ .frames = 4, .frame_duration = 0.12, .looping = false },
+        };
     }
 };
 
-// Create typed animation player and component
-const AnimPlayer = gfx.AnimationPlayer(AnimType);
 const Animation = gfx.Animation(AnimType);
 
 pub fn main() !void {
@@ -90,17 +93,7 @@ pub fn main() !void {
         renderer.getTextureManager().totalSpriteCount(),
     });
 
-    // Create animation player
-    var anim_player = AnimPlayer.init(allocator);
-    defer anim_player.deinit();
-
-    // Register animations based on our fixtures
-    try anim_player.registerAnimation(.idle, 4);
-    try anim_player.registerAnimation(.walk, 6);
-    try anim_player.registerAnimation(.run, 4);
-    try anim_player.registerAnimation(.jump, 4);
-
-    // Create player entity with animation
+    // Create player entity with animation (no AnimPlayer needed - config comes from enum)
     const player = registry.create();
     registry.add(player, Position{ .x = 400, .y = 300 });
     registry.add(player, gfx.Render{
@@ -108,14 +101,9 @@ pub fn main() !void {
         .sprite_name = "idle_0001",
         .scale = 3.0, // Scale up the small sprites
     });
-    registry.add(player, Animation{
-        .frame = 0,
-        .total_frames = 4,
-        .frame_duration = 0.15,
-        .anim_type = .idle,
-        .looping = true,
-        .playing = true,
-    });
+    var player_anim = Animation.init(.idle);
+    player_anim.scale = 3.0;
+    registry.add(player, player_anim);
 
     // Create item pickups
     const item_names = [_][]const u8{ "coin", "gem", "heart", "key", "potion", "sword" };
@@ -199,12 +187,7 @@ pub fn main() !void {
         }
 
         if (anim.anim_type != current_anim) {
-            anim_player.transitionTo(anim, current_anim);
-            if (current_anim == .jump) {
-                anim.looping = false;
-            } else {
-                anim.looping = true;
-            }
+            anim.play(current_anim);
         }
 
         // Update animation
@@ -212,10 +195,7 @@ pub fn main() !void {
 
         // Update sprite name based on animation frame
         var sprite_buf: [64]u8 = undefined;
-        const sprite_name = std.fmt.bufPrint(&sprite_buf, "{s}_{d:0>4}", .{
-            anim.anim_type.toSpriteName(),
-            anim.frame + 1,
-        }) catch "idle_0001";
+        const sprite_name = anim.getSpriteName("", &sprite_buf);
         render.sprite_name = sprite_name;
 
         // Rendering
@@ -250,10 +230,11 @@ pub fn main() !void {
         rl.drawText("A/D: Walk | Shift: Run | Space: Jump", 10, 40, 16, rl.Color.light_gray);
 
         var anim_buf: [64:0]u8 = undefined;
+        const cfg = anim.getConfig();
         _ = std.fmt.bufPrintZ(&anim_buf, "Animation: {s} Frame: {d}/{d}", .{
-            current_anim.toSpriteName(),
+            @tagName(current_anim),
             anim.frame + 1,
-            anim.total_frames,
+            cfg.frames,
         }) catch "?";
         rl.drawText(&anim_buf, 10, 70, 16, rl.Color.sky_blue);
 

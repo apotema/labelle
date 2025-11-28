@@ -19,16 +19,26 @@ const Position = struct {
     y: f32 = 0,
 };
 
-// Define animation types with NESTED PATHS
-// The key feature: toSpriteName returns "folder/animation" format
+// Define animation types with NESTED PATHS and config
+// The sprite names are generated from enum name: wizard_drink -> "wizard_drink_0001"
+// For nested paths like "wizard/drink_0001", use a custom getSpriteName approach
 const PartyAnim = enum {
     wizard_drink,
     wizard_cast,
     thief_attack,
     thief_sneak,
 
+    pub fn config(self: PartyAnim) gfx.AnimConfig {
+        return switch (self) {
+            .wizard_drink => .{ .frames = 11, .frame_duration = 0.1 },
+            .wizard_cast => .{ .frames = 4, .frame_duration = 0.15 },
+            .thief_attack => .{ .frames = 8, .frame_duration = 0.08 },
+            .thief_sneak => .{ .frames = 6, .frame_duration = 0.12 },
+        };
+    }
+
     /// Returns nested path for sprite lookup (e.g., "wizard/drink")
-    pub fn toSpriteName(self: PartyAnim) []const u8 {
+    pub fn toSpritePath(self: PartyAnim) []const u8 {
         return switch (self) {
             .wizard_drink => "wizard/drink",
             .wizard_cast => "wizard/cast",
@@ -47,8 +57,6 @@ const PartyAnim = enum {
     }
 };
 
-// Create typed animation player and component
-const AnimPlayer = gfx.AnimationPlayer(PartyAnim);
 const Animation = gfx.Animation(PartyAnim);
 
 pub fn main() !void {
@@ -91,17 +99,7 @@ pub fn main() !void {
         renderer.getTextureManager().totalSpriteCount(),
     });
 
-    // Create animation player with nested path support
-    var anim_player = AnimPlayer.init(allocator);
-    defer anim_player.deinit();
-
-    // Register animations - note the frame counts for each nested animation
-    try anim_player.registerAnimation(.wizard_drink, 11); // wizard/drink_0001 to wizard/drink_0011
-    try anim_player.registerAnimation(.wizard_cast, 4); // wizard/cast_0001 to wizard/cast_0004
-    try anim_player.registerAnimation(.thief_attack, 8); // thief/attack_0001 to thief/attack_0008
-    try anim_player.registerAnimation(.thief_sneak, 6); // thief/sneak_0001 to thief/sneak_0006
-
-    // Create wizard entity
+    // Create wizard entity (no AnimPlayer needed - config comes from enum)
     const wizard = registry.create();
     registry.add(wizard, Position{ .x = 250, .y = 300 });
     registry.add(wizard, gfx.Render{
@@ -109,7 +107,9 @@ pub fn main() !void {
         .sprite_name = "wizard/drink_0001",
         .scale = 4.0,
     });
-    registry.add(wizard, anim_player.createAnimation(.wizard_drink));
+    var wizard_anim_comp = Animation.init(.wizard_drink);
+    wizard_anim_comp.scale = 4.0;
+    registry.add(wizard, wizard_anim_comp);
 
     // Create thief entity
     const thief = registry.create();
@@ -119,7 +119,9 @@ pub fn main() !void {
         .sprite_name = "thief/attack_0001",
         .scale = 4.0,
     });
-    registry.add(thief, anim_player.createAnimation(.thief_attack));
+    var thief_anim_comp = Animation.init(.thief_attack);
+    thief_anim_comp.scale = 4.0;
+    registry.add(thief, thief_anim_comp);
 
     var wizard_anim: PartyAnim = .wizard_drink;
     var thief_anim: PartyAnim = .thief_attack;
@@ -137,23 +139,23 @@ pub fn main() !void {
         // Keyboard input to switch animations
         if (rl.isKeyPressed(rl.KeyboardKey.one)) {
             wizard_anim = .wizard_drink;
-            const anim = registry.get(Animation, wizard);
-            anim_player.transitionTo(anim, wizard_anim);
+            var anim = registry.get(Animation, wizard);
+            anim.play(wizard_anim);
         }
         if (rl.isKeyPressed(rl.KeyboardKey.two)) {
             wizard_anim = .wizard_cast;
-            const anim = registry.get(Animation, wizard);
-            anim_player.transitionTo(anim, wizard_anim);
+            var anim = registry.get(Animation, wizard);
+            anim.play(wizard_anim);
         }
         if (rl.isKeyPressed(rl.KeyboardKey.three)) {
             thief_anim = .thief_attack;
-            const anim = registry.get(Animation, thief);
-            anim_player.transitionTo(anim, thief_anim);
+            var anim = registry.get(Animation, thief);
+            anim.play(thief_anim);
         }
         if (rl.isKeyPressed(rl.KeyboardKey.four)) {
             thief_anim = .thief_sneak;
-            const anim = registry.get(Animation, thief);
-            anim_player.transitionTo(anim, thief_anim);
+            var anim = registry.get(Animation, thief);
+            anim.play(thief_anim);
         }
 
         // Update animations and sprite names for both characters
@@ -166,11 +168,10 @@ pub fn main() !void {
             // Generate sprite name using nested path
             // This produces names like "wizard/drink_0001", "thief/attack_0003"
             var sprite_buf: [64]u8 = undefined;
-            const sprite_name = gfx.animation.generateSpriteNameNoPrefix(
-                &sprite_buf,
-                anim.anim_type,
-                anim.frame,
-            );
+            const sprite_name = std.fmt.bufPrint(&sprite_buf, "{s}_{d:0>4}", .{
+                anim.anim_type.toSpritePath(),
+                anim.frame + 1,
+            }) catch "wizard/drink_0001";
             render.sprite_name = sprite_name;
         }
 
@@ -221,18 +222,20 @@ pub fn main() !void {
         const thief_a = registry.getConst(Animation, thief);
 
         var wizard_buf: [64:0]u8 = undefined;
+        const wizard_cfg = wizard_a.getConfig();
         _ = std.fmt.bufPrintZ(&wizard_buf, "{s}: {d}/{d}", .{
             wizard_anim.displayName(),
             wizard_a.frame + 1,
-            wizard_a.total_frames,
+            wizard_cfg.frames,
         }) catch "?";
         rl.drawText(&wizard_buf, 180, 420, 14, rl.Color.white);
 
         var thief_buf: [64:0]u8 = undefined;
+        const thief_cfg = thief_a.getConfig();
         _ = std.fmt.bufPrintZ(&thief_buf, "{s}: {d}/{d}", .{
             thief_anim.displayName(),
             thief_a.frame + 1,
-            thief_a.total_frames,
+            thief_cfg.frames,
         }) catch "?";
         rl.drawText(&thief_buf, 480, 420, 14, rl.Color.white);
 
