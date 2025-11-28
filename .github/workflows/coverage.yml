@@ -20,17 +20,10 @@ jobs:
         with:
           version: '0.15.2'
 
-      - name: Install kcov and raylib dependencies
+      - name: Install raylib dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            binutils-dev \
-            libcurl4-openssl-dev \
-            zlib1g-dev \
-            libdw-dev \
-            libiberty-dev \
-            cmake \
-            ninja-build \
             libgl1-mesa-dev \
             libx11-dev \
             libxcursor-dev \
@@ -43,77 +36,14 @@ jobs:
             libwayland-dev \
             libxkbcommon-dev
 
-      - name: Build and install kcov
+      - name: Run tests
         run: |
-          git clone https://github.com/SimonKagstrom/kcov.git
-          cd kcov
-          mkdir build && cd build
-          cmake -G Ninja ..
-          ninja
-          sudo ninja install
-
-      - name: Run tests with coverage
-        run: |
-          mkdir -p coverage
-
-          # Build the test binary first (to populate .zig-cache)
-          echo "Building test binary..."
-          zig build test --summary all 2>&1 || true
-
-          # Find the test binary in .zig-cache
-          # Look for the most recently modified "test" executable
-          TEST_BIN=$(find .zig-cache/o -type f -executable -name "test" 2>/dev/null | head -1)
-
-          if [ -n "$TEST_BIN" ] && [ -f "$TEST_BIN" ]; then
-            echo "Found test binary: $TEST_BIN"
-            echo "Running coverage with kcov..."
-
-            # Run kcov with the test binary
-            # Use --include-pattern to only include our source files (not cached dependencies)
-            # Exclude .zig-cache to avoid counting raylib/zspec dependencies
-            kcov --include-pattern=raylib-ecs-gfx/src/ \
-                 --exclude-pattern=.zig-cache \
-                 coverage "$TEST_BIN" || {
-              echo "kcov failed, running tests without coverage"
-              mkdir -p coverage/test
-              echo '{"percent_covered":"0"}' > coverage/test/coverage.json
-            }
-          else
-            echo "Warning: Could not find test binary"
-            echo "Running tests without coverage..."
-            zig build test --summary all
-            mkdir -p coverage/test
-            echo '{"percent_covered":"0"}' > coverage/test/coverage.json
-          fi
-
-      - name: Extract coverage percentage
-        id: coverage
-        run: |
-          # Debug: show coverage directory structure
-          echo "Coverage directory contents:"
-          ls -la coverage/
-          echo ""
-
-          # Find the coverage.json file (kcov puts it in a subfolder named after the binary)
-          COVERAGE_JSON=$(find coverage -name "coverage.json" -type f | head -1)
-
-          if [ -n "$COVERAGE_JSON" ]; then
-            echo "Found coverage file: $COVERAGE_JSON"
-            echo "Contents:"
-            cat "$COVERAGE_JSON"
-            echo ""
-
-            # Parse coverage from kcov JSON output (round to nearest integer)
-            COVERAGE_RAW=$(cat "$COVERAGE_JSON" | jq -r '.percent_covered')
-            # Use printf to round to nearest integer
-            COVERAGE=$(printf "%.0f" "$COVERAGE_RAW")
-          else
-            echo "No coverage.json found, using 0"
-            COVERAGE="0"
-          fi
-
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "Coverage: $COVERAGE%"
+          # Note: Code coverage for Zig is not available via kcov.
+          # kcov can only instrument C/C++ code with DWARF debug info.
+          # Zig code coverage would require a different tool.
+          # For now, we run tests to verify they pass.
+          echo "Running tests..."
+          zig build test --summary all
 
       - name: Create coverage badge
         if: github.ref == 'refs/heads/main'
@@ -123,28 +53,5 @@ jobs:
           gistID: ${{ vars.COVERAGE_GIST_ID }}
           filename: coverage.json
           label: coverage
-          message: ${{ steps.coverage.outputs.percentage }}%
-          valColorRange: ${{ steps.coverage.outputs.percentage }}
-          maxColorRange: 100
-          minColorRange: 0
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./coverage
-          destination_dir: coverage
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./coverage
-          fail_ci_if_error: false
-        continue-on-error: true
+          message: N/A
+          color: lightgrey
