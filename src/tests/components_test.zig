@@ -208,8 +208,11 @@ const TestAnim = enum {
     idle,
     walk,
 
-    pub fn toSpriteName(self: @This()) []const u8 {
-        return @tagName(self);
+    pub fn config(self: @This()) gfx.AnimConfig {
+        return switch (self) {
+            .idle => .{ .frames = 4, .frame_duration = 0.2 },
+            .walk => .{ .frames = 6, .frame_duration = 0.1 },
+        };
     }
 };
 

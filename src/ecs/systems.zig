@@ -8,16 +8,10 @@ const ecs = @import("ecs");
 
 const components = @import("../components/components.zig");
 const Render = components.Render;
+const Position = components.Position;
 
 const Renderer = @import("../renderer/renderer.zig").Renderer;
 const animation_mod = @import("../animation/animation.zig");
-
-/// Position component (expected from game code)
-/// Games should define their own Position component with at least x, y fields
-pub const Position = struct {
-    x: f32 = 0,
-    y: f32 = 0,
-};
 
 /// Render all entities with Position and Render components
 /// Sorts by z_index for proper layering
