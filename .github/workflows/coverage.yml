@@ -56,48 +56,29 @@ jobs:
         run: |
           mkdir -p coverage
 
-          # Build the test binary
+          # Build the test binary first (to populate .zig-cache)
+          echo "Building test binary..."
           zig build test --summary all 2>&1 || true
 
-          # List all executables to debug
-          echo "Looking for test executables..."
-          find .zig-cache/o -type f -executable 2>/dev/null | while read bin; do
-            if file "$bin" | grep -q "ELF.*executable"; then
-              SIZE=$(stat -c%s "$bin" 2>/dev/null || echo "0")
-              NAME=$(basename "$bin")
-              echo "  $NAME (size: $SIZE) - $bin"
-            fi
-          done
-
-          # Find the test binary - it's named "test" and is an ELF executable (not the build script)
-          # Skip files named "build" which is the zig build system
-          TEST_BIN=""
-          for bin in $(find .zig-cache/o -type f -executable -name "test" 2>/dev/null); do
-            if file "$bin" | grep -q "ELF.*executable"; then
-              TEST_BIN="$bin"
-              echo "Found test binary: $bin"
-              break
-            fi
-          done
+          # Find the test binary in .zig-cache
+          # Look for the most recently modified "test" executable
+          TEST_BIN=$(find .zig-cache/o -type f -executable -name "test" 2>/dev/null | head -1)
 
           if [ -n "$TEST_BIN" ] && [ -f "$TEST_BIN" ]; then
-            echo "Running coverage with: $TEST_BIN"
-            # Only include our src directory, exclude dependencies in .zig-cache
-            REPO_SRC="${GITHUB_WORKSPACE}/src"
-            echo "Including only: $REPO_SRC"
-            kcov --include-path="$REPO_SRC" coverage "$TEST_BIN" || {
+            echo "Found test binary: $TEST_BIN"
+            echo "Running coverage with kcov..."
+
+            # Run kcov with the test binary
+            # Use --include-pattern to only include our source files
+            kcov --include-pattern=/src/ coverage "$TEST_BIN" || {
               echo "kcov failed, running tests without coverage"
-              zig build test
               mkdir -p coverage/test
               echo '{"percent_covered":"0"}' > coverage/test/coverage.json
             }
           else
-            echo "Warning: Could not find test binary for coverage"
-            echo "All executables found:"
-            find .zig-cache/o -type f -executable 2>/dev/null | head -20
+            echo "Warning: Could not find test binary"
             echo "Running tests without coverage..."
-            zig build test
-            # Create a placeholder coverage file
+            zig build test --summary all
             mkdir -p coverage/test
             echo '{"percent_covered":"0"}' > coverage/test/coverage.json
           fi
