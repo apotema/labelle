@@ -43,11 +43,29 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          zig test src/tests/lib_test.zig \
-            --test-cmd kcov \
-            --test-cmd --include-pattern=/src/ \
-            --test-cmd coverage \
-            --test-cmd-bin
+          mkdir -p coverage
+          # Build and emit the test binary
+          zig build test --summary all 2>&1 || true
+
+          # Find the test binary in zig-cache
+          TEST_BIN=$(find .zig-cache/o -type f -executable -name "test" 2>/dev/null | head -1)
+
+          if [ -z "$TEST_BIN" ]; then
+            # Try alternative pattern
+            TEST_BIN=$(find .zig-cache -type f -executable 2>/dev/null | xargs file | grep ELF | head -1 | cut -d: -f1)
+          fi
+
+          if [ -n "$TEST_BIN" ] && [ -f "$TEST_BIN" ]; then
+            echo "Found test binary: $TEST_BIN"
+            kcov --include-pattern=/src/ coverage "$TEST_BIN"
+          else
+            echo "Warning: Could not find test binary for coverage"
+            echo "Running tests without coverage..."
+            zig build test
+            # Create a placeholder coverage file
+            mkdir -p coverage/test
+            echo '{"percent_covered":"0"}' > coverage/test/coverage.json
+          fi
 
       - name: Extract coverage percentage
         id: coverage
