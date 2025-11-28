@@ -82,7 +82,10 @@ jobs:
 
           if [ -n "$TEST_BIN" ] && [ -f "$TEST_BIN" ]; then
             echo "Running coverage with: $TEST_BIN"
-            kcov --include-pattern=/src/ coverage "$TEST_BIN" || {
+            # Only include our src directory, exclude dependencies in .zig-cache
+            REPO_SRC="${GITHUB_WORKSPACE}/src"
+            echo "Including only: $REPO_SRC"
+            kcov --include-path="$REPO_SRC" coverage "$TEST_BIN" || {
               echo "kcov failed, running tests without coverage"
               zig build test
               mkdir -p coverage/test
@@ -116,8 +119,10 @@ jobs:
             cat "$COVERAGE_JSON"
             echo ""
 
-            # Parse coverage from kcov JSON output
-            COVERAGE=$(cat "$COVERAGE_JSON" | jq -r '.percent_covered' | cut -d'.' -f1)
+            # Parse coverage from kcov JSON output (round to nearest integer)
+            COVERAGE_RAW=$(cat "$COVERAGE_JSON" | jq -r '.percent_covered')
+            # Use printf to round to nearest integer
+            COVERAGE=$(printf "%.0f" "$COVERAGE_RAW")
           else
             echo "No coverage.json found, using 0"
             COVERAGE="0"
