@@ -25,7 +25,7 @@ pub fn spriteRenderSystem(
 
     // Collect entities for sorting
     const EntitySort = struct {
-        entity: ecs.Registry.Entity,
+        entity: ecs.Entity,
         z_index: u8,
     };
     var entities: std.ArrayList(EntitySort) = .empty;
@@ -89,7 +89,7 @@ pub fn animationUpdateSystem(
 /// This system updates the Render component's sprite_name based on Animation state
 pub fn animationSpriteUpdateSystem(
     comptime AnimationType: type,
-    comptime sprite_prefix_fn: fn (ecs.Registry.Entity, *ecs.Registry) []const u8,
+    comptime sprite_prefix_fn: fn (ecs.Entity, *ecs.Registry) []const u8,
     registry: *ecs.Registry,
     sprite_name_buffer: []u8,
 ) void {
