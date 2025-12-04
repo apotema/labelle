@@ -8,7 +8,7 @@
 //! - Loading TexturePacker atlases
 //! - Sprites controlled via opaque SpriteId handles
 //! - Camera following and panning
-//! - Animation playback
+//! - Engine-managed animation playback via playAnimation()
 //! - Single tick() call for updates and rendering
 //!
 //! Run with: zig build run-example-11
@@ -52,7 +52,7 @@ pub fn main() !void {
     std.debug.print("Visual Engine initialized\n", .{});
     std.debug.print("Loaded atlases with sprites\n", .{});
 
-    // Create player sprite
+    // Create player sprite with initial idle animation
     const player = try engine.addSprite(.{
         .sprite_name = "idle_0001",
         .x = 400,
@@ -60,6 +60,10 @@ pub fn main() !void {
         .z_index = ZIndex.characters,
         .scale = 3.0,
     });
+
+    // Start idle animation using engine-managed playAnimation
+    // Animation name "idle" with 4 frames, 0.6s total duration, looping
+    _ = engine.playAnimation(player, "idle", 4, 0.6, true);
 
     // Create item sprites
     const item_names = [_][]const u8{ "coin", "gem", "heart", "key", "potion", "sword" };
@@ -92,15 +96,8 @@ pub fn main() !void {
     engine.setFollowSmoothing(0.05);
     engine.followEntity(player);
 
-    // Animation state
-    var current_frame: u16 = 0;
-    var frame_timer: f32 = 0;
-    const frame_duration: f32 = 0.15;
-    const idle_frames = [_][]const u8{ "idle_0001", "idle_0002", "idle_0003", "idle_0004" };
-    const walk_frames = [_][]const u8{ "walk_0001", "walk_0002", "walk_0003", "walk_0004", "walk_0005", "walk_0006" };
-
     var player_x: f32 = 400;
-    var using_walk = false;
+    var was_moving = false;
     var flip_x = false;
     var frame_count: u32 = 0;
 
@@ -127,32 +124,21 @@ pub fn main() !void {
             flip_x = false;
         }
 
-        // Switch animation based on movement
-        if (moving != using_walk) {
-            using_walk = moving;
-            current_frame = 0;
-            frame_timer = 0;
-        }
-
-        // Update animation frame
-        frame_timer += dt;
-        if (frame_timer >= frame_duration) {
-            frame_timer -= frame_duration;
-            current_frame += 1;
-
-            const frames = if (using_walk) &walk_frames else &idle_frames;
-            if (current_frame >= frames.len) {
-                current_frame = 0;
+        // Switch animation based on movement state change
+        if (moving != was_moving) {
+            was_moving = moving;
+            if (moving) {
+                // Switch to walk animation: 6 frames, 0.6s total, looping
+                _ = engine.playAnimation(player, "walk", 6, 0.6, true);
+            } else {
+                // Switch to idle animation: 4 frames, 0.6s total, looping
+                _ = engine.playAnimation(player, "idle", 4, 0.6, true);
             }
         }
 
-        // Update player sprite
+        // Update player position and flip
         _ = engine.setPosition(player, player_x, 300);
         _ = engine.setFlip(player, flip_x, false);
-
-        // Update sprite name for current animation frame
-        const frames = if (using_walk) &walk_frames else &idle_frames;
-        _ = engine.setSpriteName(player, frames[current_frame]);
 
         // Make items bounce
         for (items, 0..) |item, i| {
@@ -164,6 +150,7 @@ pub fn main() !void {
         engine.beginFrame();
 
         // Tick handles animation updates, camera updates, and rendering
+        // The animation system now automatically updates sprite names!
         engine.tick(dt);
 
         // Draw UI on top (not affected by camera)
@@ -174,11 +161,10 @@ pub fn main() !void {
         const sprite_count_str = std.fmt.bufPrintZ(&sprite_count_buf, "Sprites: {}", .{engine.spriteCount()}) catch "?";
         gfx.Engine.UI.text(sprite_count_str, .{ .x = 10, .y = 70, .size = 16, .color = gfx.Color.sky_blue });
 
+        // Show current sprite name (updated by animation system)
         var anim_buf: [64]u8 = undefined;
-        const anim_str = std.fmt.bufPrintZ(&anim_buf, "Animation: {s} Frame: {}", .{
-            if (using_walk) "walk" else "idle",
-            current_frame + 1,
-        }) catch "?";
+        const current_sprite = engine.getSpriteName(player) orelse "unknown";
+        const anim_str = std.fmt.bufPrintZ(&anim_buf, "Sprite: {s}", .{current_sprite}) catch "?";
         gfx.Engine.UI.text(anim_str, .{ .x = 10, .y = 100, .size = 16, .color = gfx.Color.sky_blue });
 
         gfx.Engine.UI.text("ESC: Exit", .{ .x = 10, .y = 580, .size = 14, .color = gfx.Color.light_gray });

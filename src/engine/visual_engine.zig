@@ -360,6 +360,11 @@ pub fn VisualEngineWith(comptime BackendType: type, comptime max_sprites: usize)
             return true;
         }
 
+        pub fn getSpriteName(self: *const Self, id: SpriteId) ?[]const u8 {
+            if (!self.isValid(id)) return null;
+            return self.sprites[id.index].getSpriteName();
+        }
+
         // ==================== Animation ====================
 
         pub fn playAnimation(self: *Self, id: SpriteId, name: []const u8, frame_count: u16, duration: f32, looping: bool) bool {
@@ -376,6 +381,9 @@ pub fn VisualEngineWith(comptime BackendType: type, comptime max_sprites: usize)
             const len = @min(name.len, sprite.animation_name.len);
             @memcpy(sprite.animation_name[0..len], name[0..len]);
             sprite.animation_name_len = @intCast(len);
+
+            // Set initial sprite name for frame 0
+            self.updateAnimationSpriteName(sprite);
 
             return true;
         }
@@ -466,10 +474,13 @@ pub fn VisualEngineWith(comptime BackendType: type, comptime max_sprites: usize)
                 sprite.animation_elapsed += dt;
 
                 const frame_duration = sprite.animation_duration / @as(f32, @floatFromInt(sprite.animation_frame_count));
+                var frame_changed = false;
 
-                if (sprite.animation_elapsed >= frame_duration) {
+                // Handle multiple frame advances if dt is large
+                while (sprite.animation_elapsed >= frame_duration) {
                     sprite.animation_elapsed -= frame_duration;
                     sprite.animation_frame += 1;
+                    frame_changed = true;
 
                     if (sprite.animation_frame >= sprite.animation_frame_count) {
                         if (sprite.animation_looping) {
@@ -482,10 +493,34 @@ pub fn VisualEngineWith(comptime BackendType: type, comptime max_sprites: usize)
                                 const id = SpriteId{ .index = @intCast(i), .generation = sprite.generation };
                                 callback(id, sprite.animation_name[0..sprite.animation_name_len]);
                             }
+                            break;
                         }
                     }
                 }
+
+                // Update sprite name to reflect current animation frame
+                if (frame_changed) {
+                    self.updateAnimationSpriteName(sprite);
+                }
             }
+        }
+
+        /// Update sprite name based on current animation state
+        /// Format: "{animation_name}_{frame:04}" (1-based frame number)
+        fn updateAnimationSpriteName(self: *Self, sprite: *InternalSpriteData) void {
+            _ = self;
+            if (sprite.animation_name_len == 0) return;
+
+            const anim_name = sprite.animation_name[0..sprite.animation_name_len];
+            const frame_1based = sprite.animation_frame + 1;
+
+            const new_name = std.fmt.bufPrint(
+                &sprite.sprite_name,
+                "{s}_{d:0>4}",
+                .{ anim_name, frame_1based },
+            ) catch return;
+
+            sprite.sprite_name_len = @intCast(new_name.len);
         }
 
         fn updateCamera(self: *Self, dt: f32) void {
