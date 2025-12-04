@@ -129,13 +129,13 @@ pub fn CameraWith(comptime BackendType: type) type {
             width: f32,
             height: f32,
 
-            /// Check if a point is inside the viewport
+            /// Check if a point is inside the viewport (inclusive of boundaries)
             pub fn containsPoint(self: ViewportRect, px: f32, py: f32) bool {
                 return px >= self.x and px <= self.x + self.width and
                     py >= self.y and py <= self.y + self.height;
             }
 
-            /// Check if a rectangle overlaps with the viewport
+            /// Check if a rectangle overlaps with the viewport (inclusive - returns true even if just touching)
             pub fn overlapsRect(self: ViewportRect, rx: f32, ry: f32, rw: f32, rh: f32) bool {
                 return rx < self.x + self.width and
                     rx + rw > self.x and
