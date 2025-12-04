@@ -15,6 +15,9 @@ const animation_mod = @import("../animation/animation.zig");
 
 /// Render all entities with Position and Render components
 /// Sorts by z_index for proper layering
+/// 
+/// Automatically performs viewport culling to skip sprites outside the camera view,
+/// reducing draw calls and improving performance for large game worlds.
 pub fn spriteRenderSystem(
     comptime PositionType: type,
     registry: *ecs.Registry,

@@ -1,4 +1,29 @@
 //! Main renderer for sprite and animation rendering
+//!
+//! ## Viewport Culling (Frustum Culling)
+//!
+//! The renderer automatically performs viewport culling to skip rendering sprites
+//! that are completely outside the visible camera area. This optimization reduces
+//! draw calls and improves performance, especially in games with:
+//! - Large game worlds with many sprites
+//! - Scrolling levels or maps
+//! - Many entities outside the current view
+//!
+//! Culling is applied automatically in:
+//! - `Engine.render()` - ECS-based engine
+//! - `VisualEngine.tick()` - Self-contained visual engine
+//! - `systems.spriteRenderSystem()` - ECS render systems
+//!
+//! The culling logic accounts for:
+//! - Sprite dimensions (width/height)
+//! - Sprite scale transformations
+//! - Camera zoom level
+//! - Camera position
+//! - Trim offsets (for trimmed sprites)
+//! - Sprite rotation in atlas
+//!
+//! Sprites are considered visible if any part overlaps the viewport, preventing
+//! visual popping at screen edges.
 
 const std = @import("std");
 const ecs = @import("ecs");
@@ -201,12 +226,23 @@ pub fn RendererWith(comptime BackendType: type) type {
         }
 
         /// Check if a sprite should be rendered based on camera viewport
-        /// Returns false if sprite is completely outside viewport (for culling)
+        /// Returns false if sprite is completely outside viewport (for frustum culling).
+        /// 
+        /// This is used internally by the rendering systems to skip off-screen sprites
+        /// and reduce draw calls. If the sprite is not found in the texture manager,
+        /// returns true to ensure error visibility.
         /// 
         /// Parameters:
         ///   - sprite_name: Name of the sprite to check
         ///   - x, y: World position of sprite center
         ///   - options: Draw options (scale affects sprite bounds)
+        /// 
+        /// Example:
+        /// ```zig
+        /// if (renderer.shouldRenderSprite("player", pos.x, pos.y, draw_options)) {
+        ///     renderer.drawSprite("player", pos.x, pos.y, draw_options);
+        /// }
+        /// ```
         pub fn shouldRenderSprite(
             self: *Self,
             sprite_name: []const u8,

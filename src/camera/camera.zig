@@ -1,9 +1,12 @@
 //! Camera abstraction for 2D games
+//!
+//! Supports viewport culling (frustum culling) to optimize rendering by skipping
+//! entities that are completely outside the visible camera area.
 
 const backend_mod = @import("../backend/backend.zig");
 const raylib_backend = @import("../backend/raylib_backend.zig");
 
-/// 2D Camera with pan, zoom, and bounds (with custom backend support)
+/// 2D Camera with pan, zoom, bounds, and viewport culling support (with custom backend support)
 pub fn CameraWith(comptime BackendType: type) type {
     return struct {
         const Self = @This();
