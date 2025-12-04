@@ -20,6 +20,7 @@ A 2D graphics library for Zig games combining [raylib](https://www.raylib.com/) 
 - **Generic Sprite Storage** - Flexible internal sprite storage with generational indices
 - **TexturePacker Support** - Load sprite atlases from JSON format (with converter tool)
 - **Camera System** - Pan, zoom, bounds, and coordinate conversion
+- **Viewport Culling** - Automatic frustum culling skips off-screen sprites for better performance
 - **ECS Integration** - Render components and systems for zig-ecs
 - **Visual Effects** - Fade, temporal fade, flash effects
 - **Z-Index Layering** - Proper draw order for 2D games
