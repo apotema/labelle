@@ -25,7 +25,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Initialize VisualEngine with window management
-    var engine = try VisualEngine.init(allocator, .{
+    var engine = VisualEngine.init(allocator, .{
         .window = .{
             .width = 800,
             .height = 600,
@@ -36,46 +36,43 @@ pub fn main() !void {
         .clear_color_r = 40,
         .clear_color_g = 40,
         .clear_color_b = 40,
-    });
+    }) catch |err| {
+        std.debug.print("Failed to initialize engine: {}\n", .{err});
+        return;
+    };
     defer engine.deinit();
 
-    // Create entities with different z-indices
+    // Load atlases
+    engine.loadAtlas("characters", "fixtures/output/characters.json", "fixtures/output/characters.png") catch |err| {
+        std.debug.print("Failed to load characters atlas: {}\n", .{err});
+    };
+    engine.loadAtlas("items", "fixtures/output/items.json", "fixtures/output/items.png") catch |err| {
+        std.debug.print("Failed to load items atlas: {}\n", .{err});
+    };
+    engine.loadAtlas("tiles", "fixtures/output/tiles.json", "fixtures/output/tiles.png") catch |err| {
+        std.debug.print("Failed to load tiles atlas: {}\n", .{err});
+    };
 
-    // Background entity (z=0) - static sprite
-    _ = try engine.addSprite(.{
-        .sprite_name = "background",
-        .x = 400,
-        .y = 300,
-        .z_index = ZIndex.background,
-        .tint_r = 50,
-        .tint_g = 50,
-        .tint_b = 100,
-        .scale = 10.0,
-    });
+    // Create entities with different z-indices
 
     // Floor tiles (z=10) - static sprites
     for (0..5) |i| {
         _ = try engine.addSprite(.{
-            .sprite_name = "tile",
+            .sprite_name = "grass",
             .x = 100 + @as(f32, @floatFromInt(i)) * 150,
-            .y = 400,
+            .y = 450,
             .z_index = ZIndex.floor,
-            .tint_r = 139,
-            .tint_g = 69,
-            .tint_b = 19,
+            .scale = 2.0,
         });
     }
 
     // Items (z=30) - static sprite
     _ = try engine.addSprite(.{
-        .sprite_name = "item",
+        .sprite_name = "coin",
         .x = 200,
         .y = 350,
         .z_index = ZIndex.items,
-        .tint_r = 255,
-        .tint_g = 215,
-        .tint_b = 0,
-        .scale = 0.5,
+        .scale = 2.0,
     });
 
     // Player character (z=40) with animation
@@ -84,9 +81,7 @@ pub fn main() !void {
         .x = 400,
         .y = 350,
         .z_index = ZIndex.characters,
-        .tint_r = 135,
-        .tint_g = 206,
-        .tint_b = 235,
+        .scale = 3.0,
     });
     // Start with idle animation (4 frames, 0.8s total)
     _ = engine.playAnimation(player, "idle", 4, 0.8, true);
@@ -97,24 +92,13 @@ pub fn main() !void {
         .x = 600,
         .y = 350,
         .z_index = ZIndex.characters,
+        .scale = 3.0,
         .tint_r = 255,
         .tint_g = 100,
         .tint_b = 100,
     });
     // Enemy walks continuously (6 frames, 0.9s total)
-    _ = engine.playAnimation(enemy, "walk", 6, 0.9, true);
-
-    // UI overlay (z=70) - static sprite
-    _ = try engine.addSprite(.{
-        .sprite_name = "ui_panel",
-        .x = 100,
-        .y = 50,
-        .z_index = ZIndex.ui,
-        .tint_r = 255,
-        .tint_g = 255,
-        .tint_b = 255,
-        .tint_a = 200,
-    });
+    _ = engine.playAnimation(enemy, "walk", 6, 0.6, true);
 
     var player_x: f32 = 400;
     var player_vel: f32 = 0;
