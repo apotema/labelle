@@ -61,6 +61,7 @@ pub fn main() !void {
             .y = 450,
             .z_index = ZIndex.floor,
             .scale = 2.0,
+            .pivot = .bottom_left,
         });
     }
 
@@ -71,6 +72,7 @@ pub fn main() !void {
         .y = 350,
         .z_index = ZIndex.items,
         .scale = 2.0,
+        .pivot = .center,
     });
 
     // Player character (z=40) with animation
@@ -80,6 +82,7 @@ pub fn main() !void {
         .y = 350,
         .z_index = ZIndex.characters,
         .scale = 3.0,
+        .pivot = .bottom_center,
     });
     // Start with idle animation (4 frames, 0.8s total)
     _ = engine.playAnimation(player, "idle", 4, 0.8, true);
@@ -91,6 +94,7 @@ pub fn main() !void {
         .y = 350,
         .z_index = ZIndex.characters,
         .scale = 3.0,
+        .pivot = .bottom_center,
     });
     // Enemy walks continuously (6 frames, 0.9s total)
     _ = engine.playAnimation(enemy, "walk", 6, 0.6, true);

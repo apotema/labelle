@@ -58,6 +58,7 @@ pub fn main() !void {
         .y = 300,
         .z_index = ZIndex.characters,
         .scale = 3.0,
+        .pivot = .bottom_center,
     });
     // Start idle animation
     _ = engine.playAnimation(player, "idle", 4, 0.6, true);
@@ -71,6 +72,7 @@ pub fn main() !void {
             .y = 500,
             .z_index = ZIndex.items,
             .scale = 2.0,
+            .pivot = .center,
         });
     }
 
@@ -83,6 +85,7 @@ pub fn main() !void {
             .y = 550,
             .z_index = ZIndex.floor,
             .scale = 1.5,
+            .pivot = .bottom_left,
         });
     }
 

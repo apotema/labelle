@@ -73,6 +73,7 @@ pub fn main() !void {
         .y = 300,
         .z_index = ZIndex.characters,
         .scale = 4.0,
+        .pivot = .bottom_center,
     });
     _ = engine.playAnimation(wizard, wizard_anims[0].path, wizard_anims[0].frames, wizard_anims[0].duration, true);
 
@@ -83,6 +84,7 @@ pub fn main() !void {
         .y = 300,
         .z_index = ZIndex.characters,
         .scale = 4.0,
+        .pivot = .bottom_center,
     });
     _ = engine.playAnimation(thief, thief_anims[0].path, thief_anims[0].frames, thief_anims[0].duration, true);
 
