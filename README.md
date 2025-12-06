@@ -20,6 +20,7 @@ A 2D graphics library for Zig games using [raylib](https://www.raylib.com/) for 
 - **Generic Sprite Storage** - Flexible internal sprite storage with generational indices
 - **TexturePacker Support** - Load sprite atlases from JSON format (with converter tool)
 - **Camera System** - Pan, zoom, bounds, and coordinate conversion
+- **Pivot Points** - Configurable anchor points for sprite positioning and rotation
 - **Viewport Culling** - Automatic frustum culling skips off-screen sprites for better performance
 - **Input/UI Helpers** - Static helpers for keyboard input and UI text rendering
 - **Visual Effects** - Fade, temporal fade, flash effects
@@ -149,6 +150,9 @@ zig build run-example-11
 
 # Comptime animation definitions
 zig build run-example-12
+
+# Pivot points / anchors
+zig build run-example-13
 ```
 
 ## API Overview
@@ -208,7 +212,7 @@ labelle/
 │   ├── backend/                # Backend abstraction
 │   └── tools/                  # CLI tools (converter)
 ├── tests/                      # Test files (zspec)
-├── examples/                   # Example applications (01-12)
+├── examples/                   # Example applications (01-13)
 └── fixtures/                   # Test assets
 ```
 
