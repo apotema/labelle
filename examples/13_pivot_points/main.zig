@@ -122,9 +122,9 @@ pub fn main() !void {
 
     const tile_y: f32 = 500;
     const tile_names = [_][]const u8{ "grass", "dirt", "stone", "brick", "wood", "water" };
-    for (0..6) |i| {
+    for (tile_names, 0..) |name, i| {
         _ = try engine.addSprite(.{
-            .sprite_name = tile_names[i],
+            .sprite_name = name,
             .x = 100 + @as(f32, @floatFromInt(i)) * 48, // 32 * 1.5 = 48
             .y = tile_y,
             .z_index = ZIndex.floor,
@@ -167,7 +167,6 @@ pub fn main() !void {
     std.debug.print("Created {} sprites\n", .{engine.spriteCount()});
 
     var frame_count: u32 = 0;
-    var rotation: f32 = 0;
 
     // Main loop
     while (engine.isRunning()) {
@@ -185,9 +184,8 @@ pub fn main() !void {
             _ = engine.setRotation(item, item_rotation);
         }
 
-        // Rotate the character sprite to demonstrate pivot point
-        rotation += dt * 30.0;
-        if (rotation > 30.0) rotation = -30.0; // Swing back and forth
+        // Rotate the character sprite to demonstrate pivot point (smooth pendulum swing)
+        const rotation = @sin(@as(f32, @floatFromInt(frame_count)) * 0.05) * 30.0;
         _ = engine.setRotation(rotating_sprite, rotation);
 
         // Begin frame
