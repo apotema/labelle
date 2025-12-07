@@ -243,31 +243,34 @@ pub fn loadSceneComptime(engine: anytype, comptime scene: anytype) !void {
     }
 }
 
-/// Load a single entity from a scene definition
+/// Load a single entity from a scene definition.
+/// Entity should be a tagged struct with exactly one field indicating the entity type.
 fn loadEntity(engine: anytype, comptime entity: anytype) !void {
     const EntityType = @TypeOf(entity);
     const fields = @typeInfo(EntityType).@"struct".fields;
 
-    // Check each possible field
-    inline for (fields) |field| {
-        if (comptime std.mem.eql(u8, field.name, "circle")) {
-            _ = try engine.addShape(circleToConfig(@field(entity, "circle")));
-            return;
-        } else if (comptime std.mem.eql(u8, field.name, "rect")) {
-            _ = try engine.addShape(rectToConfig(@field(entity, "rect")));
-            return;
-        } else if (comptime std.mem.eql(u8, field.name, "line")) {
-            _ = try engine.addShape(lineToConfig(@field(entity, "line")));
-            return;
-        } else if (comptime std.mem.eql(u8, field.name, "triangle")) {
-            _ = try engine.addShape(triangleToConfig(@field(entity, "triangle")));
-            return;
-        } else if (comptime std.mem.eql(u8, field.name, "polygon")) {
-            _ = try engine.addShape(polygonToConfig(@field(entity, "polygon")));
-            return;
-        } else if (comptime std.mem.eql(u8, field.name, "sprite")) {
-            _ = try engine.addSprite(spriteToConfig(@field(entity, "sprite")));
-            return;
-        }
+    // Scene entity should be a tagged struct with a single field
+    if (fields.len != 1) {
+        @compileError("Scene entity should have exactly one field (e.g., .{ .circle = ... })");
+    }
+
+    const field = fields[0];
+    const field_name = field.name;
+
+    // Dispatch based on field name using inline switch
+    if (comptime std.mem.eql(u8, field_name, "circle")) {
+        _ = try engine.addShape(circleToConfig(@field(entity, "circle")));
+    } else if (comptime std.mem.eql(u8, field_name, "rect")) {
+        _ = try engine.addShape(rectToConfig(@field(entity, "rect")));
+    } else if (comptime std.mem.eql(u8, field_name, "line")) {
+        _ = try engine.addShape(lineToConfig(@field(entity, "line")));
+    } else if (comptime std.mem.eql(u8, field_name, "triangle")) {
+        _ = try engine.addShape(triangleToConfig(@field(entity, "triangle")));
+    } else if (comptime std.mem.eql(u8, field_name, "polygon")) {
+        _ = try engine.addShape(polygonToConfig(@field(entity, "polygon")));
+    } else if (comptime std.mem.eql(u8, field_name, "sprite")) {
+        _ = try engine.addSprite(spriteToConfig(@field(entity, "sprite")));
+    } else {
+        @compileError("Unknown entity type: " ++ field_name);
     }
 }

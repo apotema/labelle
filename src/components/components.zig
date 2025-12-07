@@ -585,15 +585,11 @@ pub fn ShapeWith(comptime BackendType: type) type {
         /// Line thickness
         thickness: f32 = 1,
 
-        // Triangle properties (uses x,y as first point)
-        /// Second point X for triangle
-        x3: f32 = 0,
-        /// Second point Y for triangle
-        y3: f32 = 0,
+        // Triangle properties (uses x,y as first point, x2,y2 as second)
         /// Third point X for triangle
-        x4: f32 = 0,
+        x3: f32 = 0,
         /// Third point Y for triangle
-        y4: f32 = 0,
+        y3: f32 = 0,
 
         // Polygon properties (regular polygon)
         /// Number of sides for polygon
@@ -632,15 +628,15 @@ pub fn ShapeWith(comptime BackendType: type) type {
         }
 
         /// Create a triangle shape
-        pub fn triangle(x1: f32, y1: f32, x2_val: f32, y2_val: f32, x3_val: f32, y3_val: f32) Self {
+        pub fn triangle(p1_x: f32, p1_y: f32, p2_x: f32, p2_y: f32, p3_x: f32, p3_y: f32) Self {
             return .{
                 .shape_type = .triangle,
-                .x = x1,
-                .y = y1,
-                .x2 = x2_val,
-                .y2 = y2_val,
-                .x3 = x3_val,
-                .y3 = y3_val,
+                .x = p1_x,
+                .y = p1_y,
+                .x2 = p2_x,
+                .y2 = p2_y,
+                .x3 = p3_x,
+                .y3 = p3_y,
             };
         }
 

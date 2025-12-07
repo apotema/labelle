@@ -283,7 +283,7 @@ defer storage.deinit();
 const slot = try storage.allocSlot();
 
 // Initialize the sprite data
-storage.sprites[slot.index] = MySpriteData{
+storage.items[slot.index] = MySpriteData{
     .x = 100,
     .y = 200,
     .generation = slot.generation,
