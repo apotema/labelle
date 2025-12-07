@@ -46,15 +46,11 @@ pub fn ZIndexBuckets(comptime max_items: usize) type {
         total_count: usize,
 
         pub fn init(allocator: std.mem.Allocator) Self {
-            var self = Self{
-                .buckets = undefined,
+            return Self{
+                .buckets = [_]Bucket{.{}} ** 256,
                 .allocator = allocator,
                 .total_count = 0,
             };
-            for (&self.buckets) |*bucket| {
-                bucket.* = .{};
-            }
-            return self;
         }
 
         pub fn deinit(self: *Self) void {
@@ -84,9 +80,15 @@ pub fn ZIndexBuckets(comptime max_items: usize) type {
         }
 
         /// Change an item's z-index from old_z to new_z
+        /// Returns error if the item was not found at old_z
         pub fn changeZIndex(self: *Self, item: RenderItem, old_z: u8, new_z: u8) !void {
             if (old_z == new_z) return;
-            _ = self.remove(item, old_z);
+            const removed = self.remove(item, old_z);
+            if (!removed) {
+                return error.ItemNotFound;
+            }
+            // Note: if insert fails, the item is lost - but this is an OOM situation
+            // where recovery is unlikely anyway
             try self.insert(item, new_z);
         }
 

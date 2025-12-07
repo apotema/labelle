@@ -399,6 +399,11 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
 
         pub fn addSprite(self: *Self, config: SpriteConfig) !SpriteId {
             const slot = try self.storage.allocSlot();
+            errdefer {
+                // Rollback: free the allocated slot if z_bucket insert fails
+                self.storage.items[slot.index].active = false;
+                self.storage.free_list.append(self.allocator, slot.index) catch {};
+            }
 
             self.storage.items[slot.index] = InternalSpriteData{
                 .x = config.x,
@@ -437,7 +442,9 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
 
             // Remove from z-index bucket
             const z_index = self.storage.items[id.index].z_index;
-            _ = self.z_buckets.remove(.{ .sprite = id }, z_index);
+            const removed_from_bucket = self.z_buckets.remove(.{ .sprite = id }, z_index);
+            // Assert: if sprite is valid, it must exist in the z_bucket
+            std.debug.assert(removed_from_bucket);
 
             return self.storage.remove(id);
         }
@@ -560,6 +567,11 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
         /// Add a new shape to the engine
         pub fn addShape(self: *Self, config: ShapeConfig) !ShapeId {
             const slot = try self.shape_storage.allocSlot();
+            errdefer {
+                // Rollback: free the allocated slot if z_bucket insert fails
+                self.shape_storage.items[slot.index].active = false;
+                self.shape_storage.free_list.append(self.allocator, slot.index) catch {};
+            }
 
             self.shape_storage.items[slot.index] = InternalShapeData{
                 .shape_type = config.shape_type,
@@ -600,7 +612,9 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
 
             // Remove from z-index bucket
             const z_index = self.shape_storage.items[id.index].z_index;
-            _ = self.z_buckets.remove(.{ .shape = id }, z_index);
+            const removed_from_bucket = self.z_buckets.remove(.{ .shape = id }, z_index);
+            // Assert: if shape is valid, it must exist in the z_bucket
+            std.debug.assert(removed_from_bucket);
 
             return self.shape_storage.remove(.{ .index = id.index, .generation = id.generation });
         }
