@@ -52,14 +52,15 @@ defer engine.deinit();
 // Create sprites - engine owns them internally
 const player = try engine.addSprite(.{
     .sprite_name = "player_idle",
-    .x = 400, .y = 300,
+    .position = .{ .x = 400, .y = 300 },
+    .pivot = .center,
     .z_index = gfx.ZIndex.characters,
     .tint = .{ .r = 255, .g = 200, .b = 200 },  // Optional tint color
 });
 
 // Game loop
 while (engine.isRunning()) {
-    engine.setPosition(player, new_x, new_y);
+    engine.setPosition(player, .{ .x = new_x, .y = new_y });
     engine.beginFrame();
     engine.tick(dt);
     engine.endFrame();
@@ -184,7 +185,7 @@ try engine.loadSprite("background", "assets/background.png");
 // Use like any atlas sprite
 const bg = try engine.addSprite(.{
     .sprite_name = "background",
-    .x = 0, .y = 0,
+    .position = .{ .x = 0, .y = 0 },
     .pivot = .top_left,
     .z_index = gfx.ZIndex.background,
 });
@@ -249,28 +250,28 @@ const gfx = @import("labelle");
 // Character with bottom-center pivot (feet position)
 const player = try engine.addSprite(.{
     .sprite_name = "player_idle",
-    .x = 400, .y = 300,
+    .position = .{ .x = 400, .y = 300 },
     .pivot = .bottom_center,  // Sprite's feet at (400, 300)
 });
 
 // Room tile with bottom-left pivot (for grid placement)
 const tile = try engine.addSprite(.{
     .sprite_name = "floor_tile",
-    .x = 0, .y = 0,
+    .position = .{ .x = 0, .y = 0 },
     .pivot = .bottom_left,  // Tile's corner at (0, 0)
 });
 
 // Item with center pivot (default - good for rotation)
 const gem = try engine.addSprite(.{
     .sprite_name = "gem",
-    .x = 100, .y = 100,
+    .position = .{ .x = 100, .y = 100 },
     .pivot = .center,  // Default, can be omitted
 });
 
 // Custom pivot (e.g., weapon handle position)
 const sword = try engine.addSprite(.{
     .sprite_name = "sword",
-    .x = 100, .y = 100,
+    .position = .{ .x = 100, .y = 100 },
     .pivot = .custom,
     .pivot_x = 0.1,  // Near left edge (handle)
     .pivot_y = 0.9,  // Near bottom

@@ -78,7 +78,8 @@ defer engine.deinit();
 // Create sprites - engine owns them internally
 const player = try engine.addSprite(.{
     .sprite_name = "player_idle",
-    .x = 400, .y = 300,
+    .position = .{ .x = 400, .y = 300 },
+    .pivot = .center,
     .z_index = gfx.visual_engine.ZIndex.characters,
     .tint = .{ .r = 255, .g = 200, .b = 200 },  // Optional tint color
 });
@@ -88,7 +89,7 @@ while (engine.isRunning()) {
     const dt = engine.getDeltaTime();
 
     // Update sprite
-    _ = engine.setPosition(player, new_x, new_y);
+    _ = engine.setPosition(player, .{ .x = new_x, .y = new_y });
     _ = engine.setSpriteName(player, "player_walk_0001");
 
     // Render
