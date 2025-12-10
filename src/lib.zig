@@ -181,6 +181,7 @@ pub const animation_def = @import("animation_def.zig");
 
 // Re-export RetainedEngine types at top level
 pub const RetainedEngine = retained_engine.RetainedEngine;
+pub const RetainedEngineWith = retained_engine.RetainedEngineWith;
 pub const EntityId = retained_engine.EntityId;
 pub const TextureId = retained_engine.TextureId;
 pub const FontId = retained_engine.FontId;
@@ -269,6 +270,9 @@ pub fn withBackend(comptime Impl: type) type {
         pub const AtlasConfig = engine_mod.AtlasConfig;
         pub const CameraConfig = engine_mod.CameraConfig;
         pub const EngineConfig = engine_mod.EngineConfig;
+
+        // RetainedEngine with custom backend
+        pub const RetainedEngine = retained_engine.RetainedEngineWith(B);
     };
 }
 
