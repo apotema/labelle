@@ -29,7 +29,7 @@ pub const Pivot = enum {
     custom, // Use pivot_x, pivot_y values (0.0-1.0)
 
     /// Get the normalized pivot coordinates (0.0-1.0) for this pivot type.
-    /// For custom pivots, use the provided values.
+    /// For custom pivots, use the provided values (clamped to 0.0-1.0).
     pub fn getNormalized(self: Pivot, custom_x: f32, custom_y: f32) struct { x: f32, y: f32 } {
         return switch (self) {
             .center => .{ .x = 0.5, .y = 0.5 },
@@ -41,7 +41,10 @@ pub const Pivot = enum {
             .bottom_left => .{ .x = 0.0, .y = 1.0 },
             .bottom_center => .{ .x = 0.5, .y = 1.0 },
             .bottom_right => .{ .x = 1.0, .y = 1.0 },
-            .custom => .{ .x = custom_x, .y = custom_y },
+            .custom => .{
+                .x = std.math.clamp(custom_x, 0.0, 1.0),
+                .y = std.math.clamp(custom_y, 0.0, 1.0),
+            },
         };
     }
 
