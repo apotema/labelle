@@ -6,10 +6,23 @@
 //! Note: SDL.zig uses version "0.0.0" in its package manifest, which indicates
 //! it follows a rolling release model. The specific commit hash in build.zig.zon
 //! pins to a tested version (commit a7e95b5).
+//!
+//! ## Optional Extensions
+//!
+//! **SDL_image** - For loading PNG/JPG textures from files:
+//! ```zig
+//! sdl_sdk.link(exe, .dynamic, .SDL2_image);
+//! ```
+//!
+//! **SDL_ttf** - For text rendering:
+//! ```zig
+//! sdl_sdk.link(exe, .dynamic, .SDL2_ttf);
+//! ```
 
 const std = @import("std");
 const backend = @import("backend.zig");
 const sdl = @import("sdl2");
+const sdl_image = sdl.image;
 
 /// SDL2 backend implementation
 pub const SdlBackend = struct {
@@ -24,6 +37,7 @@ pub const SdlBackend = struct {
     var last_frame_time: u64 = 0;
     var frame_time: f32 = 1.0 / 60.0;
     var should_quit: bool = false;
+    var sdl_image_initialized: bool = false;
 
     // Input state tracking for isKeyPressed/isKeyReleased
     // SDL scancodes go up to ~512, use a bitset for previous frame state
@@ -146,13 +160,33 @@ pub const SdlBackend = struct {
     // REQUIRED: TEXTURE MANAGEMENT
     // =========================================================================
 
-    /// Load texture from file path
-    /// Note: SDL2 core only loads BMP. For PNG/JPG, use loadTextureFromMemory with pre-loaded data.
+    /// Load texture from file path (requires SDL2_image to be linked)
+    /// Supports PNG, JPG, BMP, and other formats via SDL_image.
+    /// If SDL2_image is not linked, this will fail at build time (unresolved symbols).
     pub fn loadTexture(path: [:0]const u8) !Texture {
-        _ = path;
-        // SDL2 core cannot load PNG/JPG directly (needs SDL2_image)
-        // Similar to sokol backend, return error for file loading
-        return backend.BackendError.TextureLoadFailed;
+        const ren = renderer orelse return backend.BackendError.TextureLoadFailed;
+
+        // Use SDL_image to load the texture (supports PNG, JPG, BMP, etc.)
+        const tex = sdl_image.loadTexture(ren, path) catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL_image loadTexture failed for '{s}': {}\n", .{ path, err });
+            }
+            return backend.BackendError.TextureLoadFailed;
+        };
+
+        // Query texture dimensions
+        const info = tex.query() catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL texture query failed for '{s}': {}\n", .{ path, err });
+            }
+            return backend.BackendError.TextureLoadFailed;
+        };
+
+        return Texture{
+            .handle = tex,
+            .width = @intCast(info.width),
+            .height = @intCast(info.height),
+        };
     }
 
     /// Load texture from raw pixel data (RGBA format)
@@ -380,10 +414,26 @@ pub const SdlBackend = struct {
             };
         }
 
+        // Initialize SDL_image for PNG/JPG support (optional, fails gracefully if not linked)
+        sdl_image.init(.{ .png = true, .jpg = true }) catch {
+            // SDL_image not linked or init failed - loadTexture from file won't work
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL_image init failed (library may not be linked)\n", .{});
+            }
+            // Don't set sdl_image_initialized on failure
+            last_frame_time = sdl.getPerformanceCounter();
+            return;
+        };
+        sdl_image_initialized = true;
+
         last_frame_time = sdl.getPerformanceCounter();
     }
 
     pub fn closeWindow() void {
+        if (sdl_image_initialized) {
+            sdl_image.quit();
+            sdl_image_initialized = false;
+        }
         if (renderer) |r| r.destroy();
         if (window) |w| w.destroy();
         sdl.quit();
