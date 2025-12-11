@@ -41,6 +41,7 @@ const raylib_backend = @import("../backend/raylib_backend.zig");
 const renderer_mod = @import("../renderer/renderer.zig");
 const texture_manager_mod = @import("../texture/texture_manager.zig");
 const camera_mod = @import("../camera/camera.zig");
+const camera_manager_mod = @import("../camera/camera_manager.zig");
 const animation_def = @import("../animation_def.zig");
 const components = @import("../components/components.zig");
 
@@ -276,6 +277,7 @@ pub fn VisualEngineWith(comptime BackendType: type, comptime max_sprites: usize)
 pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: usize, comptime max_shapes: usize) type {
     const Renderer = renderer_mod.RendererWith(BackendType);
     const Camera = camera_mod.CameraWith(BackendType);
+    const CameraManager = camera_manager_mod.CameraManagerWith(BackendType);
     const Storage = GenericSpriteStorage(InternalSpriteData, max_sprites);
     const ShapeStorage = GenericShapeStorage(max_shapes);
     const InternalShapeData = shape_storage.InternalShapeData;
@@ -288,6 +290,7 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
         pub const Backend = BackendType;
         pub const SpriteStorageType = Storage;
         pub const ShapeStorageType = ShapeStorage;
+        pub const SplitScreenLayout = camera_manager_mod.SplitScreenLayout;
 
         allocator: std.mem.Allocator,
         renderer: Renderer,
@@ -307,6 +310,10 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
         camera_pan_target_x: ?f32 = null,
         camera_pan_target_y: ?f32 = null,
         camera_pan_speed: f32 = 200,
+
+        // Multi-camera support
+        camera_manager: CameraManager,
+        multi_camera_enabled: bool = false,
 
         // Callbacks
         on_animation_complete: ?OnAnimationComplete = null,
@@ -336,6 +343,7 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
                 .storage = try Storage.init(allocator),
                 .shape_storage = try ShapeStorage.init(allocator),
                 .animation_registry = .empty,
+                .camera_manager = CameraManager.init(),
                 .owns_window = owns_window,
                 .clear_color = BackendType.color(
                     config.clear_color.r,
@@ -846,7 +854,44 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
         }
 
         pub fn getCamera(self: *Self) *Camera {
+            if (self.multi_camera_enabled) {
+                return self.camera_manager.getPrimaryCamera();
+            }
             return &self.renderer.camera;
+        }
+
+        // ==================== Multi-Camera ====================
+
+        /// Get the camera manager for multi-camera control
+        pub fn getCameraManager(self: *Self) *CameraManager {
+            return &self.camera_manager;
+        }
+
+        /// Get a specific camera by index (0-3)
+        pub fn getCameraAt(self: *Self, index: u2) *Camera {
+            return self.camera_manager.getCamera(index);
+        }
+
+        /// Enable multi-camera mode with a split-screen layout
+        pub fn setupSplitScreen(self: *Self, layout: SplitScreenLayout) void {
+            self.multi_camera_enabled = true;
+            self.camera_manager.setupSplitScreen(layout);
+        }
+
+        /// Disable multi-camera mode and return to single-camera
+        pub fn disableMultiCamera(self: *Self) void {
+            self.multi_camera_enabled = false;
+        }
+
+        /// Check if multi-camera mode is enabled
+        pub fn isMultiCameraEnabled(self: *const Self) bool {
+            return self.multi_camera_enabled;
+        }
+
+        /// Set active cameras using a bitmask (bit N = camera N active)
+        pub fn setActiveCameras(self: *Self, mask: u4) void {
+            self.multi_camera_enabled = true;
+            self.camera_manager.setActiveMask(mask);
         }
 
         // ==================== Main Loop ====================
@@ -958,6 +1003,15 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
         }
 
         fn render(self: *Self) void {
+            if (self.multi_camera_enabled) {
+                self.renderMultiCamera();
+            } else {
+                self.renderSingleCamera();
+            }
+        }
+
+        /// Render with a single camera (original behavior)
+        fn renderSingleCamera(self: *Self) void {
             // Begin camera mode
             self.renderer.beginCameraMode();
 
@@ -982,6 +1036,41 @@ pub fn VisualEngineWithShapes(comptime BackendType: type, comptime max_sprites: 
 
             // End camera mode
             self.renderer.endCameraMode();
+        }
+
+        /// Render with multiple cameras
+        fn renderMultiCamera(self: *Self) void {
+            var cam_iter = self.camera_manager.activeIterator();
+            while (cam_iter.next()) |cam| {
+                // Begin camera mode with viewport clipping
+                if (cam.screen_viewport) |vp| {
+                    BackendType.beginScissorMode(vp.x, vp.y, vp.width, vp.height);
+                }
+                BackendType.beginMode2D(cam.toBackend());
+
+                // Render all visuals for this camera
+                var iter = self.z_buckets.iterator();
+                while (iter.next()) |item| {
+                    switch (item) {
+                        .sprite => |id| {
+                            if (self.isValid(id) and self.storage.items[id.index].visible) {
+                                self.renderSprite(id);
+                            }
+                        },
+                        .shape => |id| {
+                            if (self.isShapeValid(id) and self.shape_storage.items[id.index].visible) {
+                                self.renderShape(id);
+                            }
+                        },
+                    }
+                }
+
+                // End camera mode
+                BackendType.endMode2D();
+                if (cam.screen_viewport != null) {
+                    BackendType.endScissorMode();
+                }
+            }
         }
 
         fn renderSprite(self: *Self, id: SpriteId) void {
