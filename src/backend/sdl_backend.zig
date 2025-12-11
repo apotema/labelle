@@ -14,15 +14,18 @@
 //! sdl_sdk.link(exe, .dynamic, .SDL2_image);
 //! ```
 //!
-//! **SDL_ttf** - For text rendering:
+//! **SDL_ttf** - For text rendering, link SDL2_ttf and load a font:
 //! ```zig
 //! sdl_sdk.link(exe, .dynamic, .SDL2_ttf);
+//! // Then in your code:
+//! try gfx.SdlBackend.loadFont("assets/font.ttf", 16);
 //! ```
 
 const std = @import("std");
 const backend = @import("backend.zig");
 const sdl = @import("sdl2");
 const sdl_image = sdl.image;
+const sdl_ttf = sdl.ttf;
 
 /// SDL2 backend implementation
 pub const SdlBackend = struct {
@@ -38,6 +41,8 @@ pub const SdlBackend = struct {
     var frame_time: f32 = 1.0 / 60.0;
     var should_quit: bool = false;
     var sdl_image_initialized: bool = false;
+    var sdl_ttf_initialized: bool = false;
+    var default_font: ?sdl_ttf.Font = null;
 
     // Input state tracking for isKeyPressed/isKeyReleased
     // SDL scancodes go up to ~512, use a bitset for previous frame state
@@ -426,10 +431,30 @@ pub const SdlBackend = struct {
         };
         sdl_image_initialized = true;
 
+        // Initialize SDL_ttf for text rendering (optional, fails gracefully if not linked)
+        sdl_ttf.init() catch {
+            // SDL_ttf not linked or init failed - drawText won't work
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL_ttf init failed (library may not be linked)\n", .{});
+            }
+            // Don't set sdl_ttf_initialized on failure
+            last_frame_time = sdl.getPerformanceCounter();
+            return;
+        };
+        sdl_ttf_initialized = true;
+
         last_frame_time = sdl.getPerformanceCounter();
     }
 
     pub fn closeWindow() void {
+        if (default_font) |font| {
+            font.close();
+            default_font = null;
+        }
+        if (sdl_ttf_initialized) {
+            sdl_ttf.quit();
+            sdl_ttf_initialized = false;
+        }
         if (sdl_image_initialized) {
             sdl_image.quit();
             sdl_image_initialized = false;
@@ -675,6 +700,36 @@ pub const SdlBackend = struct {
     }
 
     // =========================================================================
+    // OPTIONAL: FONT MANAGEMENT (requires SDL_ttf)
+    // =========================================================================
+
+    /// Load a TTF font file to use for text rendering.
+    /// Must be called before drawText will work.
+    /// Requires SDL2_ttf to be linked.
+    pub fn loadFont(path: [:0]const u8, point_size: i32) !void {
+        if (!sdl_ttf_initialized) {
+            return backend.BackendError.InitializationFailed;
+        }
+
+        // Close existing font if any
+        if (default_font) |font| {
+            font.close();
+        }
+
+        default_font = sdl_ttf.openFont(path, @intCast(point_size)) catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL_ttf openFont failed for '{s}': {}\n", .{ path, err });
+            }
+            return backend.BackendError.TextureLoadFailed;
+        };
+    }
+
+    /// Check if a font is loaded and ready for text rendering
+    pub fn isFontLoaded() bool {
+        return default_font != null;
+    }
+
+    // =========================================================================
     // OPTIONAL: SHAPE DRAWING
     // Note: Shape drawing functions operate in screen coordinates and do NOT
     // apply camera transforms. This is intentional to match raylib behavior
@@ -682,13 +737,50 @@ pub const SdlBackend = struct {
     // For camera-aware shapes, transform coordinates manually before drawing.
     // =========================================================================
 
+    /// Draw text at the specified position.
+    /// Note: The font_size parameter is ignored - SDL_ttf uses the size set in loadFont().
+    /// To change font size, call loadFont() again with the desired point size.
     pub fn drawText(text: [*:0]const u8, x: i32, y: i32, font_size: i32, col: Color) void {
-        _ = text;
-        _ = x;
-        _ = y;
-        _ = font_size;
-        _ = col;
-        // SDL2 has no built-in text rendering - needs SDL2_ttf
+        _ = font_size; // SDL_ttf uses point size from loadFont(), not this parameter
+
+        const ren = renderer orelse return;
+        const font = default_font orelse {
+            // No font loaded - silently skip
+            return;
+        };
+
+        // Render text to surface
+        const surface = font.renderTextBlended(std.mem.span(text), col.toSdl()) catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL_ttf renderTextBlended failed: {}\n", .{err});
+            }
+            return;
+        };
+        defer surface.destroy();
+
+        // Create texture from surface
+        const texture = sdl.createTextureFromSurface(ren, surface) catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL createTextureFromSurface failed: {}\n", .{err});
+            }
+            return;
+        };
+        defer texture.destroy();
+
+        // Query texture dimensions
+        const info = texture.query() catch return;
+
+        // Draw texture
+        ren.copy(texture, sdl.Rectangle{
+            .x = x,
+            .y = y,
+            .width = @intCast(info.width),
+            .height = @intCast(info.height),
+        }, null) catch |err| {
+            if (@import("builtin").mode == .Debug) {
+                std.debug.print("SDL copy failed: {}\n", .{err});
+            }
+        };
     }
 
     pub fn drawRectangle(x: i32, y: i32, w: i32, h: i32, col: Color) void {
