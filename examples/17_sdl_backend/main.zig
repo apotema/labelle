@@ -8,7 +8,6 @@
 //! Run with: zig build run-example-17
 
 const std = @import("std");
-const sdl = @import("sdl2");
 const gfx = @import("labelle");
 
 // Create types using the SDL backend
@@ -67,15 +66,14 @@ pub fn main() !void {
         if (gfx.SdlBackend.isKeyDown(.up)) position_y -= 200 * dt;
         if (gfx.SdlBackend.isKeyDown(.down)) position_y += 200 * dt;
 
-        // Toggle animation with space (using isKeyDown since isKeyPressed not implemented)
-        if (gfx.SdlBackend.isKeyDown(.space)) {
-            if (animation.anim_type == .idle) {
-                animation.play(.walk);
-            }
-        } else {
-            if (animation.anim_type == .walk) {
-                animation.play(.idle);
-            }
+        // Animation based on space key state (hold space = walk, release = idle)
+        // Note: isKeyPressed is not implemented for SDL backend (returns false),
+        // so we use isKeyDown which gives "hold to walk" behavior instead of toggle
+        const space_held = gfx.SdlBackend.isKeyDown(.space);
+        if (space_held and animation.anim_type == .idle) {
+            animation.play(.walk);
+        } else if (!space_held and animation.anim_type == .walk) {
+            animation.play(.idle);
         }
 
         // Exit on escape

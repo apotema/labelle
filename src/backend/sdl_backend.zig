@@ -2,6 +2,10 @@
 //!
 //! Implements the backend interface using SDL.zig bindings.
 //! Reference: https://github.com/ikskuh/SDL.zig
+//!
+//! Note: SDL.zig uses version "0.0.0" in its package manifest, which indicates
+//! it follows a rolling release model. The specific commit hash in build.zig.zon
+//! pins to a tested version (commit a7e95b5).
 
 const std = @import("std");
 const backend = @import("backend.zig");
@@ -139,10 +143,13 @@ pub const SdlBackend = struct {
     }
 
     /// Load texture from raw pixel data (RGBA format)
+    /// Note: The RGBA masks assume little-endian byte order, which is correct for
+    /// x86/x64 and ARM processors. On big-endian systems, colors may appear incorrect.
     pub fn loadTextureFromMemory(pixels: []const u8, w: i32, h: i32) !Texture {
         const ren = renderer orelse return backend.BackendError.TextureLoadFailed;
 
         // Create surface from pixels
+        // RGBA masks for little-endian systems (x86/x64, ARM)
         const surface = sdl.Surface.createRgbSurfaceFrom(
             @constCast(pixels.ptr),
             w,
@@ -203,12 +210,15 @@ pub const SdlBackend = struct {
             .y = origin.y * (if (current_camera) |cam| cam.zoom else 1.0),
         };
 
-        // Draw with rotation
+        // Combine texture rotation with camera rotation
+        const total_rotation = rotation + (if (current_camera) |cam| cam.rotation else 0.0);
+
+        // Draw with rotation (copyExF signature: texture, dstRect, srcRect, angle, center, flip)
         ren.copyExF(
             texture.handle,
             transformed.toSdlRectF(),
             source.toSdlRect(),
-            rotation,
+            total_rotation,
             center,
             .none,
         ) catch |err| {
@@ -553,6 +563,10 @@ pub const SdlBackend = struct {
 
     // =========================================================================
     // OPTIONAL: SHAPE DRAWING
+    // Note: Shape drawing functions operate in screen coordinates and do NOT
+    // apply camera transforms. This is intentional to match raylib behavior
+    // and allow for UI rendering that should not follow the camera.
+    // For camera-aware shapes, transform coordinates manually before drawing.
     // =========================================================================
 
     pub fn drawText(text: [*:0]const u8, x: i32, y: i32, font_size: i32, col: Color) void {
